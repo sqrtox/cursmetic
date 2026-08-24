@@ -1,11 +1,12 @@
 mod word;
 
-use crate::Cursor;
 use std::collections::HashMap;
 use std::ops::AddAssign;
 use std::path::Path;
 
 pub use word::*;
+
+use crate::Cursor;
 
 #[derive(Default)]
 pub struct Evaluation {

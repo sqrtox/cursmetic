@@ -5,7 +5,7 @@
 {
   "lsp": {
     "rust-analyzer": {
-      "settings": {
+      "initialization_options": {
         "rustfmt": {
           "extraArgs": ["+nightly"]
         }

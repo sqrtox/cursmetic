@@ -1,10 +1,9 @@
 use std::fmt::Display;
+
 use strum::EnumIter;
 
-use crate::{
-    error::Result,
-    windows::{ResourceId, load_string, main_cpl},
-};
+use crate::error::Result;
+use crate::windows::{ResourceId, load_string, main_cpl};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, EnumIter, Ord, PartialOrd)]
 pub enum Cursor {

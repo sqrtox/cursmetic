@@ -1,18 +1,15 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::LazyLock,
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
-use icu_segmenter::{WordSegmenter, options::WordBreakInvariantOptions};
+use icu_segmenter::WordSegmenter;
+use icu_segmenter::options::WordBreakInvariantOptions;
 use strum::IntoEnumIterator;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::{
-    Cursor,
-    error::Result,
-    eval::{Evaluation, Evaluator, Scoreboard},
-    windows::{ResourceId, load_string, main_cpl},
-};
+use crate::Cursor;
+use crate::error::Result;
+use crate::eval::{Evaluation, Evaluator, Scoreboard};
+use crate::windows::{ResourceId, load_string, main_cpl};
 
 static M: LazyLock<HashMap<Cursor, Vec<HashSet<String>>>> = LazyLock::new(|| {
     HashMap::from_iter(

@@ -1,19 +1,18 @@
+use std::collections::HashMap;
+use std::io::{Stdout, stdout};
+use std::path::PathBuf;
+use std::process::exit;
+
 use clap::Parser;
-use crossterm::{
-    execute,
-    style::Stylize,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-};
-use cursmetic_recognizer::{Cursor, CursorMatch, CursorRecognizer, eval::WordEvaluator};
+use crossterm::execute;
+use crossterm::style::Stylize;
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use cursmetic_recognizer::eval::WordEvaluator;
+use cursmetic_recognizer::{Cursor, CursorMatch, CursorRecognizer};
 use dialoguer::{Confirm, Input, Select};
-use std::{
-    collections::HashMap,
-    io::{Stdout, stdout},
-    path::PathBuf,
-    process::exit,
-};
 use strum::IntoEnumIterator;
-use windows::{Win32::Foundation::ERROR_FILE_NOT_FOUND, core::HRESULT};
+use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
+use windows::core::HRESULT;
 use windows_registry::{CURRENT_USER, Transaction};
 
 #[derive(Debug, Parser)]
