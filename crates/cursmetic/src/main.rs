@@ -1,3 +1,5 @@
+mod scheme;
+
 use std::collections::HashMap;
 use std::io::{Stdout, stdout};
 use std::path::PathBuf;
@@ -11,9 +13,8 @@ use cursmetic_recognizer::eval::WordEvaluator;
 use cursmetic_recognizer::{Cursor, CursorMatch, CursorRecognizer};
 use dialoguer::{Confirm, Input, Select};
 use strum::IntoEnumIterator;
-use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
-use windows::core::HRESULT;
-use windows_registry::{CURRENT_USER, Transaction};
+
+use crate::scheme::{CursorScheme, CursorSchemeName};
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -133,6 +134,7 @@ fn main() -> anyhow::Result<()> {
             cursor: Cursor,
             display_path: Option<String>,
         },
+        FillEmpty,
         Separator,
         Cancel,
         Enter,
@@ -158,6 +160,7 @@ fn main() -> anyhow::Result<()> {
                 ),
                 Item::Separator => "-".repeat(20),
                 Item::Cancel => "Cancel".to_string(),
+                Item::FillEmpty => "Fill empty with a Preset >".to_string(),
                 Item::Enter => "Enter".to_string(),
             }
         }
@@ -181,7 +184,7 @@ fn main() -> anyhow::Result<()> {
                     display_path: Some(c.to_str()?.to_string()),
                 })
             })
-            .chain([Item::Separator, Item::Cancel, Item::Enter])
+            .chain([Item::Separator, Item::FillEmpty, Item::Cancel, Item::Enter])
             .collect();
         let selection = Select::new().items(&items).interact()?;
         let selected = &items[selection];
@@ -196,6 +199,48 @@ fn main() -> anyhow::Result<()> {
             }
             Item::Separator => continue,
             Item::Enter => break,
+            Item::FillEmpty => {
+                enum Item {
+                    Preset(CursorScheme),
+                    Cancel,
+                }
+
+                impl ToString for &Item {
+                    fn to_string(&self) -> String {
+                        match self {
+                            // TODO: unwrap
+                            Item::Preset(name) => name.display_name().unwrap(),
+                            Item::Cancel => "Cancel".to_string(),
+                        }
+                    }
+                }
+
+                let items: Vec<_> = CursorScheme::machine_cursors()?
+                    .into_iter()
+                    .chain(CursorScheme::user_cursors()?)
+                    // TODO: unwrap
+                    .map(|name| Item::Preset(CursorScheme::read(name).unwrap()))
+                    .chain([Item::Cancel])
+                    .collect();
+
+                let selected = Select::new().items(&items).interact()?;
+                let selected = &items[selected];
+
+                match selected {
+                    Item::Preset(scheme) => {
+                        for (cursor, path) in scheme.iter() {
+                            if !candidate.contains_key(&cursor) {
+                                candidate.insert(cursor.clone(), path.clone());
+                            }
+                        }
+
+                        continue;
+                    }
+                    Item::Cancel => {
+                        continue;
+                    }
+                }
+            }
             Item::Cursor { cursor, .. } => {
                 enum Item {
                     Suggestion { path: PathBuf, score: f64 },
@@ -274,51 +319,28 @@ fn main() -> anyhow::Result<()> {
 
     drop(screen);
 
-    let mut cursors = Cursor::iter()
-        .filter(Cursor::is_standard)
-        .map(|c| (candidate.get(&c), c))
-        .collect::<Vec<_>>();
-
-    cursors.sort_by(|a, b| a.1.cmp(&b.1));
-
-    let cursors = cursors
-        .iter()
-        .map(|(p, _)| p.and_then(|p| p.to_str()).unwrap_or_default().to_string())
-        .collect::<Vec<_>>()
-        .join(",");
-
-    let exists = match CURRENT_USER
-        .open("control panel\\cursors\\schemes")?
-        .get_value(&theme_name)
-    {
-        Ok(_) => true,
-        Err(r) if r.code() == HRESULT::from(ERROR_FILE_NOT_FOUND) => false,
-        Err(r) => return Err(r.into()),
+    let mut preset = CursorScheme::User {
+        name: CursorSchemeName::User(theme_name.clone()),
+        paths: HashMap::new(),
     };
 
-    if exists
-        && !Confirm::new()
-            .default(false)
-            .with_prompt("overwrite?")
-            .interact()?
-    {
+    for (cursor, path) in candidate {
+        preset.insert(cursor, path);
+    }
+
+    let exists = preset.exists()?;
+    let overwrite_confirm = Confirm::new()
+        .default(false)
+        .with_prompt("overwrite?")
+        .interact()?;
+
+    if exists && !overwrite_confirm {
         println!("operation aborted");
 
         return Ok(());
     }
 
-    let tx = Transaction::new()?;
-    let key = CURRENT_USER
-        .options()
-        .read()
-        .write()
-        .create()
-        .transaction(&tx)
-        .open("control panel\\cursors\\schemes")?;
-
-    key.set_expand_string(theme_name, cursors)?;
-
-    tx.commit()?;
+    preset.write()?;
 
     Ok(())
 }
